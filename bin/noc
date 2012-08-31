@@ -12,8 +12,9 @@ end
 
 CHEF=".chef"
 KNIFE="knife.rb"
-CHEF_KNIFE=File.join(CHEF, KNIFE )
+CHEF_KNIFE=File.join(CHEF, KNIFE)
 VAGRANTFILE="Vagrantfile"
+DATABAGS="data_bags"
 
 
 include GLI::App
@@ -44,7 +45,47 @@ command :init do |c|
     case
     when args[0] == "solo"
       puts "Init solo"
-    else
+
+    when args[0] == "users"
+      users_dir = File.join(DATABAGS,"users")
+      Dir.mkdir(users_dir) unless File.exists?(users_dir)
+
+      $cluster[:users].each do |user|
+        json = File.join( users_dir, user, ".json")
+        if File.exists?(json) then
+          raise "File exists #{json}"
+        end
+
+        # gen key
+        key = File.join( users_dir, user, ".key" )
+        if File.exists?(key) then
+          raise "File exists #{key}"
+        end
+
+        system( "ssh-keygen -b 2048 -f #{key}" )
+        pub = IO.read("#{key}.pub")
+
+      end
+
+    when args[0] == "bags"
+      %w[clusters users secrets].each do |b|
+        system("knife data bag create #{b}")
+      end
+    when args[0] == "vagrant"
+      # create vagrantfile
+      if File.exists?(VAGRANTFILE) then
+        raise "File exists #{VAGRANTFILE}"
+      end
+      template = File.join(File.dirname(__FILE__), '..', 'templates', VAGRANTFILE + ".erb" )
+      if not File.exists?(template) then
+        raise "Template not found: #{template}"
+      end
+      File.open( VAGRANTFILE, 'w' ) do |f|
+        f.write( Erubis::Eruby.new(File.new(template).read).result({:clusterfile => global_options[:clusterfile],
+                                                            :cluster => $cluster}))
+      end
+
+    when args[0].nil?
       if File.exists?(CHEF_KNIFE) then
         raise "File exists #{CHEF_KNIFE}"
       end
@@ -65,21 +106,23 @@ command :init do |c|
       puts "#{CHEF_KNIFE}"
     end
 
-    # create vagrantfile
-    if File.exists?(VAGRANTFILE) then
-      raise "File exists #{VAGRANTFILE}"
-    end
-    template = File.join(File.dirname(__FILE__), '..', 'templates', VAGRANTFILE + ".erb" )
-    if not File.exists?(template) then
-      raise "Template not found: #{template}"
-    end
-    File.open( VAGRANTFILE, 'w' ) do |f|
-      f.write( Erubis::Eruby.new(File.new(template).read).result({:clusterfile => global_options[:clusterfile],
-                                                            :cluster => $cluster}))
-    end
     puts "init command ran"
   end
 end
+
+desc 'Download stuff'
+arg_name 'COMMAND [options]'
+command :download do |c|
+  c.action do |global_options,options,args|
+    case
+    when args[0] == 'books'
+      $cluster[:cookbooks].each do |b|
+        system("knife cookbook site install #{b}")
+      end
+    end
+  end
+end
+
 
 desc 'Upload cookbook, role, databag'
 arg_name 'COMMAND [options]'
@@ -123,13 +166,21 @@ command :upload do |c|
       File.open( data_bag, 'w' ) do |f|
         f.write( $cluster.to_json )
       end
-      system("knife data bag create clusters")
       system("knife data bag from file clusters #{$cluster[:id]}.json")
-    end
 
+
+    when args[0] == "users"
+      Dir.glob("data_bags/users/*.json").each do |f|
+        system("knife data bag from file users #{File.basename(f)}")
+      end
+    when args[0] == "user"
+      system("knife data bag from file users #{args[1]}.json")
+
+    end # upload
     puts "upload command ran"
   end
 end
+
 
 desc 'Delete client from chef server'
 arg_name 'COMMAND [options]'
@@ -142,6 +193,7 @@ command :delete do |c|
     end
   end
 end
+
 
 pre do |global,command,options,args|
   # Pre logic here

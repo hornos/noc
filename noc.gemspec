@@ -24,5 +24,6 @@ lib/noc.rb
   s.add_development_dependency('rdoc')
   s.add_development_dependency('aruba')
   s.add_development_dependency('erubis')
+  s.add_development_dependency('JSON')
   s.add_runtime_dependency('gli','2.0.0')
 end
