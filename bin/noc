@@ -131,6 +131,18 @@ command :upload do |c|
   end
 end
 
+desc 'Delete client from chef server'
+arg_name 'COMMAND [options]'
+command :delete do |c|
+  c.action do |global_options,options,args|
+    case
+    when args[0] == 'client'
+      system("knife client delete #{args[1]}")
+      system("knife node delete #{args[1]}")
+    end
+  end
+end
+
 pre do |global,command,options,args|
   # Pre logic here
   # Return true to proceed; false to abourt and not call the
