@@ -1,0 +1,12 @@
+current_dir = File.dirname(__FILE__)
+log_level                :info
+log_location             STDOUT
+node_name                <%= if not defined? node_name then 'localhost' else node_name end %>
+client_key               "#{current_dir}/<%= if not defined? node_name then 'localhost' else node_name end %>.pem"
+validation_client_name   <%= if not defined? client_name then 'localhost' else client_name end %>
+validation_key           "#{current_dir}/<%= if not defined? client_name then 'localhost' else client_name end %>.pem"
+chef_server_url          <%= if not defined? server_url then 'http://localhost:4000' else server_url end %>
+cache_type               'BasicFile'
+cache_options( :path => "#{ENV['HOME']}/.chef/checksums" )
+cookbook_path            ["#{current_dir}/../cookbooks"]
+encrypted_data_bag_secret "#{current_dir}/data_bag.key"

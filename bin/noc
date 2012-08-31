@@ -1,0 +1,142 @@
+#!/usr/bin/env ruby
+require 'gli'
+begin # XXX: Remove this begin/rescue before distributing your app
+require 'noc'
+rescue LoadError
+  STDERR.puts "In development, you need to use `bundle exec bin/todo` to run your app"
+  STDERR.puts "At install-time, RubyGems will make sure lib, etc. are in the load path"
+  STDERR.puts "Feel free to remove this message from bin/todo now"
+  exit 64
+end
+
+
+CHEF=".chef"
+KNIFE="knife.rb"
+CHEF_KNIFE=File.join(CHEF, KNIFE )
+VAGRANTFILE="Vagrantfile"
+
+
+include GLI::App
+
+program_desc 'Describe your application here'
+
+version Noc::VERSION
+
+# desc 'Describe some switch here'
+# switch [:s,:switch]
+
+desc 'Cluster file'
+default_value 'Clusterfile.yml'
+arg_name 'CLUSTERFILE'
+flag [:c,:clusterfile]
+
+
+desc 'Scaffold the cluster'
+arg_name 'options'
+command :init do |c|
+  # c.desc 'Describe a switch to init'
+  # c.switch :s
+
+  # c.desc 'Describe a flag to init'
+  # c.default_value 'default'
+  # c.flag :f
+  c.action do |global_options,options,args|
+    case
+    when args[0] == "solo"
+      puts "Init solo"
+    else
+      if File.exists?(CHEF_KNIFE) then
+        raise "File exists #{CHEF_KNIFE}"
+      end
+      if $cluster[:knife].nil? then
+        raise "No knife section in cluster"
+      end
+      # create chef directory
+      Dir.mkdir(CHEF) unless File.exists?(CHEF)
+      # knife.rb template
+      template = File.join(File.dirname(__FILE__), '..', 'templates', KNIFE + ".erb" )
+      if not File.exists?(template) then
+        raise "Template not found: #{template}"
+      end
+      # create knife.rb
+      File.open( CHEF_KNIFE, 'w' ) do |f|
+        f.write( Erubis::Eruby.new(File.new(template).read).result($cluster[:knife]) )
+      end
+      puts "#{CHEF_KNIFE}"
+    end
+
+    # create vagrantfile
+    if File.exists?(VAGRANTFILE) then
+      raise "File exists #{VAGRANTFILE}"
+    end
+    template = File.join(File.dirname(__FILE__), '..', 'templates', VAGRANTFILE + ".erb" )
+    if not File.exists?(template) then
+      raise "Template not found: #{template}"
+    end
+    puts Erubis::Eruby.new(File.new(template).read).result({:clusterfile => global_options[:clusterfile],
+                                                            :cluster => $cluster}).inspect
+    puts "init command ran"
+  end
+end
+
+desc 'Upload cookbook, role, databag'
+arg_name 'COMMAND [options]'
+command :upload do |c|
+  c.action do |global_options,options,args|
+    case
+    when args[0] == 'books'
+      system("knife cookbook upload --all")
+    when args[0] == "book"
+      system("knife cookbook upload #{args[1]}")
+
+    when args[0] == "roles"
+      Dir.glob("roles/*.rb").each do |f|
+        system("knife role from file #{f}")
+      end
+    when args[0] == "role"
+      system("knife role from file roles/#{args[1]}.rb")
+
+    when args[0] == "envs"
+      Dir.glob("environments/*.rb").each do |f|
+        system("knife environment from file #{f}")
+      end
+    when args[0] == "env"
+      system("knife environment from file environments/#{args[1]}.rb")
+    end
+
+    puts "upload command ran"
+  end
+end
+
+pre do |global,command,options,args|
+  # Pre logic here
+  # Return true to proceed; false to abourt and not call the
+  # chosen command
+  # Use skips_pre before a command to skip this block
+  # on that command only
+
+  begin
+    file = global[:clusterfile]
+    $cluster = YAML.load_file file
+  rescue Exception => e
+    STDERR.puts e.message
+    # STDERR.puts "ERROR: No infrastructure .yml file provided."
+    exit(-1)
+  end
+
+  true
+end
+
+post do |global,command,options,args|
+  # Post logic here
+  # Use skips_post before a command to skip this
+  # block on that command only
+end
+
+on_error do |exception|
+  # Error logic here
+  # return false to skip default error handling
+  true
+end
+
+exit run(ARGV)

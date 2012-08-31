@@ -1,0 +1,9 @@
+.rake_test_cache
+*.pem
+*.key
+*.pub
+.vagrant
+Clusterfile.yml
+.chef
+
+

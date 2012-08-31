@@ -1,0 +1,5 @@
+= noc
+
+Generate this with
+    noc rdoc
+After you have described your command line interface
