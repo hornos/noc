@@ -73,8 +73,10 @@ command :init do |c|
     if not File.exists?(template) then
       raise "Template not found: #{template}"
     end
-    puts Erubis::Eruby.new(File.new(template).read).result({:clusterfile => global_options[:clusterfile],
-                                                            :cluster => $cluster}).inspect
+    File.open( VAGRANTFILE, 'w' ) do |f|
+      f.write( Erubis::Eruby.new(File.new(template).read).result({:clusterfile => global_options[:clusterfile],
+                                                            :cluster => $cluster}))
+    end
     puts "init command ran"
   end
 end
@@ -82,12 +84,18 @@ end
 desc 'Upload cookbook, role, databag'
 arg_name 'COMMAND [options]'
 command :upload do |c|
+  c.desc 'force'
+  c.switch :f
+
   c.action do |global_options,options,args|
     case
     when args[0] == 'books'
       system("knife cookbook upload --all")
     when args[0] == "book"
-      system("knife cookbook upload #{args[1]}")
+      args.shift
+      args.each do |a|
+        system("knife cookbook upload #{a}")
+      end
 
     when args[0] == "roles"
       Dir.glob("roles/*.rb").each do |f|
@@ -102,6 +110,21 @@ command :upload do |c|
       end
     when args[0] == "env"
       system("knife environment from file environments/#{args[1]}.rb")
+
+    when args[0] == "cluster"
+      data_bag = File.join( "data_bags", "clusters", "#{$cluster[:id]}.json" )
+      if File.exists?( data_bag ) then
+        if not options[:f] then
+          raise "Cluster found: #{data_bag}"
+        end
+      end
+      data_bag_dir = File.join( "data_bags", "clusters" )
+      Dir.mkdir(data_bag_dir) unless File.exists?(data_bag_dir)
+      File.open( data_bag, 'w' ) do |f|
+        f.write( $cluster.to_json )
+      end
+      system("knife data bag create clusters")
+      system("knife data bag from file clusters #{$cluster[:id]}.json")
     end
 
     puts "upload command ran"
