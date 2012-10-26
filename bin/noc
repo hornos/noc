@@ -35,70 +35,50 @@ flag [:c,:clusterfile]
 desc 'Scaffold the cluster'
 arg_name 'options'
 command :init do |c|
-  # c.desc 'Describe a switch to init'
-  # c.switch :s
 
-  # c.desc 'Describe a flag to init'
-  # c.default_value 'default'
-  # c.flag :f
   c.action do |global_options,options,args|
-    case
-    when args[0] == "solo"
-      puts "Init solo"
+    case args[0]
 
-    when args[0] == "users"
+    when "users"
       users_dir = File.join(DATABAGS,"users")
       Dir.mkdir(users_dir) unless File.exists?(users_dir)
 
       $cluster[:users].each do |user|
         json = File.join( users_dir, user, ".json")
-        if File.exists?(json) then
-          raise "File exists #{json}"
-        end
+        raise "File exists #{json}" if File.exists?(json)
 
-        # gen key
         key = File.join( users_dir, user, ".key" )
-        if File.exists?(key) then
-          raise "File exists #{key}"
-        end
+        raise "File exists #{key}" if File.exists?(key)
 
         system( "ssh-keygen -b 2048 -f #{key}" )
         pub = IO.read("#{key}.pub")
-
       end
 
-    when args[0] == "bags"
+    when "bags"
       %w[clusters users secrets].each do |b|
         system("knife data bag create #{b}")
       end
-    when args[0] == "vagrant"
+
+    when "vagrant"
       # create vagrantfile
-      if File.exists?(VAGRANTFILE) then
-        raise "File exists #{VAGRANTFILE}"
-      end
+      raise "File exists #{VAGRANTFILE}" if File.exists?(VAGRANTFILE)
       template = File.join(File.dirname(__FILE__), '..', 'templates', VAGRANTFILE + ".erb" )
-      if not File.exists?(template) then
-        raise "Template not found: #{template}"
-      end
+      raise "Template not found: #{template}" if not File.exists?(template)
+
       File.open( VAGRANTFILE, 'w' ) do |f|
         f.write( Erubis::Eruby.new(File.new(template).read).result({:clusterfile => global_options[:clusterfile],
                                                             :cluster => $cluster}))
       end
 
-    when args[0].nil?
-      if File.exists?(CHEF_KNIFE) then
-        raise "File exists #{CHEF_KNIFE}"
-      end
-      if $cluster[:knife].nil? then
-        raise "No knife section in cluster"
-      end
+    when nil
+      raise "File exists #{CHEF_KNIFE}" if File.exists?(CHEF_KNIFE)
+      raise "No knife section in cluster" if $cluster[:knife].nil?
+
       # create chef directory
       Dir.mkdir(CHEF) unless File.exists?(CHEF)
       # knife.rb template
       template = File.join(File.dirname(__FILE__), '..', 'templates', KNIFE + ".erb" )
-      if not File.exists?(template) then
-        raise "Template not found: #{template}"
-      end
+      raise "Template not found: #{template}" if not File.exists?(template)
       # create knife.rb
       File.open( CHEF_KNIFE, 'w' ) do |f|
         f.write( Erubis::Eruby.new(File.new(template).read).result($cluster[:knife]) )
@@ -114,8 +94,8 @@ desc 'Download stuff'
 arg_name 'COMMAND [options]'
 command :download do |c|
   c.action do |global_options,options,args|
-    case
-    when args[0] == 'books'
+    case args[0]
+    when 'books'
       $cluster[:cookbooks].each do |b|
         system("knife cookbook site install #{b}")
       end
@@ -131,20 +111,20 @@ command :upload do |c|
   c.switch :f
 
   c.action do |global_options,options,args|
-    case
-    when args[0] == 'books'
+    case args[0]
+    when 'books'
       system("knife cookbook upload --all")
-    when args[0] == "book"
+    when 'book'
       args.shift
       args.each do |a|
         system("knife cookbook upload #{a}")
       end
 
-    when args[0] == "roles"
+    when 'roles'
       Dir.glob("roles/*.rb").each do |f|
         system("knife role from file #{f}")
       end
-    when args[0] == "role"
+    when 'role'
       system("knife role from file roles/#{args[1]}.rb")
 
     when args[0] == "envs"
