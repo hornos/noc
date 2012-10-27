@@ -1,6 +1,6 @@
 = noc
 
-Describe your project here
+Vagrant net op
 
 :include:noc.rdoc
 

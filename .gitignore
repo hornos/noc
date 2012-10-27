@@ -6,6 +6,5 @@
 Clusterfile.yml
 .chef
 *.gem
-
-
-
+Gemfile.lock
+*.sublime*
