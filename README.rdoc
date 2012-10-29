@@ -1,6 +1,9 @@
 = noc
 
-Vagrant net op
+Vagrant helper
+
+Upload stuff to chef server:
+upload cluster | user(s) | book(s) | role(s) | bag(s) | env(s)
 
 :include:noc.rdoc
 
